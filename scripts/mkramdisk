@@ -1,0 +1,22 @@
+#!/bin/sh
+
+if [ $EUID != 0 ];
+then
+  echo "Please re-run this as root";
+  exit
+fi
+
+if [ ! -d /mnt/ramdisk ];
+then
+  mkdir -p /mnt/ramdisk
+fi
+
+mount -t ramfs -o size=$1 ramfs /mnt/ramdisk
+
+if [ $? != 0 ];
+then
+  echo "Error in making ramdisk!";
+  exit
+fi
+
+echo "All Done!"
