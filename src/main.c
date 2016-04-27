@@ -15,9 +15,21 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include <assert.h>
+#include <sys/reg.h>
 #include "main.h"
 
+/**
+  @brief gets an object from the child's memory
+  @input size how big the object is (in terms of bytes)
+  @input address the starting address
+  @return the blob of data from the child
+*/
+void *grab_object(size_t size, void *address)
+{
+  void **data = malloc(sizeof(char) * size);
+
+  return data;
+}
 
 /**
   @breif here we process the the child's syscall
@@ -26,21 +38,25 @@
 void process_syscall(pid_t child)
 {
   struct user_regs_struct data;
-  ptrace(PTRACE_GETREGS, child, NULL, &data);
-
   long syscall_num = 0;
+  /**
+    @note According to Nelson Elhage, %rax is clobbered by the kernel (which
+    makes some sense), so that is why we are doing PEEKUSER.
+
+    @note from ptrace(2) PEEKUSER only returns *one* word. So...that means a
+    for loop, which we can do from the information in writev...it will just take
+    some time.
+  */
   #ifdef __x86_64__
-    syscall_num = data.rax;
+    ptrace(PTRACE_GETREGS, child, NULL, &data);
+    syscall_num = ptrace(PTRACE_PEEKUSER, child, __WORDSIZE * ORIG_RAX, NULL);
   #else
-    syscall_num = data.eax
+    ptrace(PTRACE_GETREGS, child, NULL, &data);
+    syscall_num = ptrace(PTRACE_PEEKUSER, child, __WORDSIZE * ORIG_EAX, NULL);
   #endif
 
   if(syscall_num == SYS_writev)
   {
-    printf("caughts a writev\n");
-    printf("FD: %u\n", data.rdi);
-    printf("IOV: %u\n", data.rsi);
-    printf("IOVCNT: %u\n", data.rdx);
     ///hijack the write
     /**
       From the man page:
@@ -55,18 +71,26 @@ void process_syscall(pid_t child)
       iov is an array of iocnt size.
 
       So, I'd have to read each one these units, peek data, write it, and
-      return what was sent. This applies to read as well. s/write/read/
+      return what was sent. This applies to read as well. s/write/read/i
+
+      @note gprof will generate an extra writev, so I'll have to monitor
+      close(2)
     */
+    printf("caught a writev\n");
+    printf("FD: %llu\n", data.rdi);
+    printf("IOV: %llu\n", data.rsi);
+    printf("IOVCNT: %llu\n", data.rdx);
     //ebx, ecx, edx
 
   }
   else if(syscall_num == SYS_readv)
   {
+    printf("caught a readv\n");
     ///hijack the read
   }
   else
   {
-    printf("Syscall number: %i\n", data.rax);
+    printf("Syscall number: %llu\n", data.rax);
   }
 }
 
@@ -253,9 +277,8 @@ struct user_regs_struct get_syscall(pid_t child)
 void do_parent(char *conf_location, pid_t child)
 {
   int status = 0;
-  int retval = 0;
   waitpid(child, &status, 0);
-  assert(WIFSTOPPED(status));
+  WIFSTOPPED(status);
   ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD);
 
   /*

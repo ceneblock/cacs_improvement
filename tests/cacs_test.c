@@ -28,11 +28,6 @@ void print_help()
 //int main(int _argc, char **_argv)
 int main(int argc, char **argv)
 {
-  /*
-  int argc = _argc;
-  char **argv = malloc(sizeof(_argv) * (argc + 1));
-  memcpy(argv, _argv, (sizeof(_argv) * (argc + 1)));
-  */
   if(argc == 4)
   {
     printf("Going to open a file called %s with rank 1\n", argv[1]);

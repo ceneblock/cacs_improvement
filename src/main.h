@@ -37,3 +37,4 @@ void read_conf(char *conf_location, struct file_vec_struct *file_array);
 int file_vec_struct_comparison(const void *left, const void *right);
 int wait_for_syscall(pid_t child);
 void process_syscall(pid_t child);
+void *grab_object(size_t size, void *address);
