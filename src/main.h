@@ -3,6 +3,7 @@
   @brief header file for cacs_improvements. Really, this is clean up main.c
 */
 #include <getopt.h> ///for longopts
+#include <sys/user.h>
 #ifndef HAVE_CONFIG_H
 #define PACKAGE_STRING "test 0.0.1"
 #else
@@ -28,9 +29,11 @@ struct file_vec_struct
 };
 
 void handle_death(int status, void *pid);
-long get_syscall(pid_t child);
+struct user_regs_struct get_syscall(pid_t child);
 void do_parent(char *conf_location, pid_t child);
 void do_child(char *program_name, char **program_opts);
 void print_help();
 void read_conf(char *conf_location, struct file_vec_struct *file_array);
 int file_vec_struct_comparison(const void *left, const void *right);
+int wait_for_syscall(pid_t child);
+void process_syscall(pid_t child);

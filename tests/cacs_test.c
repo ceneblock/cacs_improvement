@@ -25,27 +25,39 @@ void print_help()
 
 }
 
+//int main(int _argc, char **_argv)
 int main(int argc, char **argv)
 {
+  /*
+  int argc = _argc;
+  char **argv = malloc(sizeof(_argv) * (argc + 1));
+  memcpy(argv, _argv, (sizeof(_argv) * (argc + 1)));
+  */
   if(argc == 4)
   {
     printf("Going to open a file called %s with rank 1\n", argv[1]);
-    printf("Going to open a file called %s with rank 1\n", argv[2]);
-    printf("Going to open a file called %s with rank 1\n", argv[3]);
+    printf("Going to open a file called %s with rank 2\n", argv[2]);
+    printf("Going to open a file called %s with rank 3\n", argv[3]);
 
     int file1 = open(argv[1], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
     int file2 = open(argv[2], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
     int file3 = open(argv[3], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
 
-    char *test_string = "Hello World";
+    char *test_string1 = "Hello World 1\n";
+    char *test_string2 = "Hello World 2\n";
+    char *test_string3 = "Hello World 3\n";
 
-    struct iovec *iov = malloc(sizeof(struct iovec));
-    iov -> iov_base = test_string;
-    iov -> iov_len  = strlen(test_string);
+    struct iovec *iov = malloc(sizeof(struct iovec) * 3);
+    iov[0].iov_base = test_string1;
+    iov[0].iov_len  = strlen(test_string1);
+    iov[1].iov_base = test_string2;
+    iov[1].iov_len  = strlen(test_string2);
+    iov[2].iov_base = test_string3;
+    iov[2].iov_len  = strlen(test_string3);
 
-    writev(file1, iov, 1);
-    writev(file2, iov, 1);
-    writev(file3, iov, 1);
+    writev(file1, &iov[0], 1);
+    writev(file2, &iov[1], 1);
+    writev(file3, &iov[2], 1);
 
     close(file1);
     close(file2);

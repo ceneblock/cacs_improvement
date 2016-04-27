@@ -15,7 +15,79 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <assert.h>
 #include "main.h"
+
+
+/**
+  @breif here we process the the child's syscall
+  @param child the child's PID
+*/
+void process_syscall(pid_t child)
+{
+  struct user_regs_struct data;
+  ptrace(PTRACE_GETREGS, child, NULL, &data);
+
+  long syscall_num = 0;
+  #ifdef __x86_64__
+    syscall_num = data.rax;
+  #else
+    syscall_num = data.eax
+  #endif
+
+  if(syscall_num == SYS_writev)
+  {
+    printf("caughts a writev\n");
+    printf("FD: %u\n", data.rdi);
+    printf("IOV: %u\n", data.rsi);
+    printf("IOVCNT: %u\n", data.rdx);
+    ///hijack the write
+    /**
+      From the man page:
+      ssize_t writev(int fd, const struct iovec *iov, int iocnt);
+
+      struct iovec
+      {
+        void *iov_base;   //Starting Address
+        ssize_t iov_len;  //Number of bytes to transfer
+      };
+
+      iov is an array of iocnt size.
+
+      So, I'd have to read each one these units, peek data, write it, and
+      return what was sent. This applies to read as well. s/write/read/
+    */
+    //ebx, ecx, edx
+
+  }
+  else if(syscall_num == SYS_readv)
+  {
+    ///hijack the read
+  }
+  else
+  {
+    printf("Syscall number: %i\n", data.rax);
+  }
+}
+
+/**
+  @breif waits for a syscall. This code is from nelhage, because something weird
+  is going on in my code
+  @param child the child's PID
+  @return 0 if we got a syscall otherwise 1
+*/
+int wait_for_syscall(pid_t child) {
+    int status;
+    while (1) {
+        ptrace(PTRACE_SYSCALL, child, 0, 0);
+        waitpid(child, &status, 0);
+        if (WIFSTOPPED(status) && WSTOPSIG(status) & 0x80)
+            return 0;
+        if (WIFEXITED(status))
+            return 1;
+        fprintf(stderr, "[stopped %d (%x)]\n", status, WSTOPSIG(status));
+    }
+}
 
 /**
   @brief does all of the child stuff
@@ -156,30 +228,21 @@ void handle_death(int status, void *pid)
   @param child the child's process
   @return the syscall number
 */
-long get_syscall(pid_t child)
+struct user_regs_struct get_syscall(pid_t child)
 {
-  long syscall_num = 0;
   struct user_regs_struct registers;
-  int rv = ptrace(PTRACE_GETREGS, child, NULL, registers);
+  int rv = ptrace(PTRACE_GETREGS, child, NULL, &registers);
 
-  if(rv != -1)
-  {
-#ifdef __x86_64__
-  syscall_num = registers.rax;
-#else
-  syscall_num = registers.eax
-#endif
-  }
-  else
+  if(rv == -1)
   {
     fprintf(stderr, "Error on line %i ptrace(PTRACE_GETREGS)\n", __LINE__);
     fprintf(stderr, "Error is: %s\n", strerror(errno));
     fprintf(stderr, "PANIC! Don't know how to recover! Aborting!\n");
     exit_status = EXIT_FAILURE;
 
-    //exit(exit_status);
+    exit(exit_status);
   }
-  return syscall_num;
+  return registers;
 }
 
 /**
@@ -189,65 +252,34 @@ long get_syscall(pid_t child)
 */
 void do_parent(char *conf_location, pid_t child)
 {
-
-  long rv = ptrace(PTRACE_ATTACH, child, NULL, NULL);
-
   int status = 0;
+  int retval = 0;
+  waitpid(child, &status, 0);
+  assert(WIFSTOPPED(status));
+  ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD);
 
-  if(rv != -1)
+  /*
+  long rv = ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_EXITKILL | 
+      PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC | PTRACE_O_TRACEFORK |
+      PTRACE_O_TRACESYSGOOD | PTRACE_O_TRACEVFORK);
+  */
+
+  while(1)
   {
-    waitpid(-1, &status, __WALL);
-    ///make sure that we can inspect children\threads..
-    /*
-    ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_EXITKILL | PTRACE_O_TRACECLONE
-        | PTRACE_O_TRACEEXEC | PTRACE_O_TRACEFORK | PTRACE_O_TRACESYSGOOD |
-        PTRACE_O_TRACEVFORK);
-    */
-    //waitpid(-1, &status, __WALL);
-    //wait(&status);
-    while(1)
+    if(wait_for_syscall(child) != 0)
     {
-      ptrace(PTRACE_SYSCALL, child, NULL, 0);
-      wait(&status);
-      if(WIFSTOPPED(status))
-      {
-        long syscall = get_syscall(child);
-        if(syscall == SYS_writev)
-        {
-          ///hijack the write
-          /**
-            From the man page:
-            ssize_t writev(int fd, const struct iovec *iov, int iocnt);
-
-            struct iovec
-            {
-              void *iov_base;   //Starting Address
-              ssize_t iov_len;  //Number of bytes to transfer
-            };
-
-            iov is an array of iocnt size.
-
-            So, I'd have to read each one these units, peek data, write it, and
-            return what was sent. This applies to read as well. s/write/read/
-          */
-
-        }
-        else if(syscall == SYS_readv)
-        {
-          ///hijack the read
-        }
-
-      }
+      break;
     }
+    process_syscall(child);
+    if(wait_for_syscall(child) != 0)
+    {
+      printf("popped out 2\n");
+      break;
+    }
+    process_syscall(child);
+  }
 
-    ptrace(PTRACE_DETACH, child, NULL, 0);
-  }
-  else
-  {
-    fprintf(stderr, "ERROR on ptrace(PTRACE_ATTACH) line: %i\n", __LINE__);
-    fprintf(stderr, "Aborting and killing children\n");
-    exit_status = EXIT_FAILURE;
-  }
+  ptrace(PTRACE_DETACH, child, NULL, 0);
   
 }
 
@@ -272,11 +304,6 @@ void print_help()
 
 int main(int argc, char **argv)
 {
-  int x = 0;
-  for(x = 0; x < argc; x++)
-  {
-    printf("%i: %s\n", x,argv[x]);
-  }
   char *conf_location = NULL, *program_name = NULL, **program_opts = NULL;
   int have_c = 0, have_p = 0;
   
@@ -301,7 +328,7 @@ int main(int argc, char **argv)
           {
             if(strcmp(argv[x], program_name) == 0)
             {
-              x++;
+              //x++;
               ///Anything past here belongs to the child.
               program_opts = malloc(sizeof(char *) * (argc - x + 1));
               int y = 0;
@@ -355,14 +382,14 @@ int main(int argc, char **argv)
   {
     pid_t child = 0;
     child = fork();
-    if(child > 0)
+    if(child == 0)
+    {
+       do_child(program_name, program_opts);
+    }
+    else if(child > 0)
     {
        on_exit(handle_death,&child); ///so this isn't pased to the child
        do_parent(conf_location, child);
-    }
-    if(child == 0)
-    {
-      do_child(program_name, program_opts);
     }
     else
     {
