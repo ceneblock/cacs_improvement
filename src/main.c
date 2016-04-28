@@ -16,19 +16,48 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/reg.h>
+#include <sys/uio.h>
 #include "main.h"
 
 /**
   @brief gets an object from the child's memory
   @input size how big the object is (in terms of bytes)
   @input address the starting address
+  @input child the child's pid
   @return the blob of data from the child
 */
-void *grab_object(size_t size, void *address)
+long *grab_object(size_t size, long address, pid_t child)
 {
-  void **data = malloc(sizeof(char) * size);
 
-  return data;
+  printf("address %li\n", address);
+  union u {
+    long val;
+    char chars[sizeof(long)];
+  }data;
+
+  size_t numWords = size / sizeof(long);
+ 
+  size_t i = 0;
+
+  struct iovec *iov = malloc(sizeof(struct iovec));
+  struct iovec *laddr = iov;
+
+  while(i < numWords)
+  {
+
+  #ifdef __x86_64__
+    data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * sizeof(long)), NULL);
+    memcpy(laddr, data.chars, sizeof(long));
+    ++i;
+    laddr += sizeof(long);
+  #else
+    data.val = ptrace(PTRACE_PEEKDATA, child, address, NULL);
+    ++i;
+    laddr += sizeof(long); //IDK what this value is..
+  #endif
+  }  
+  printf("Data: %lu\n", (iov -> iov_base));
+  return data.val;
 }
 
 /**
@@ -48,11 +77,13 @@ void process_syscall(pid_t child)
     some time.
   */
   #ifdef __x86_64__
-    ptrace(PTRACE_GETREGS, child, NULL, &data);
-    syscall_num = ptrace(PTRACE_PEEKUSER, child, __WORDSIZE * ORIG_RAX, NULL);
+    data.rdi = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * RDI, NULL);
+    data.rsi = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * RSI, NULL);
+    data.rdx = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * RDX, NULL);
+    syscall_num = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * ORIG_RAX, NULL);
   #else
     ptrace(PTRACE_GETREGS, child, NULL, &data);
-    syscall_num = ptrace(PTRACE_PEEKUSER, child, __WORDSIZE * ORIG_EAX, NULL);
+    syscall_num = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * ORIG_EAX, NULL);
   #endif
 
   if(syscall_num == SYS_writev)
@@ -81,17 +112,19 @@ void process_syscall(pid_t child)
     printf("IOV: %llu\n", data.rsi);
     printf("IOVCNT: %llu\n", data.rdx);
     //ebx, ecx, edx
-
+    grab_object((sizeof(struct iovec) * data.rdx), data.rsi, child);
   }
   else if(syscall_num == SYS_readv)
   {
     printf("caught a readv\n");
     ///hijack the read
   }
+  /*
   else
   {
     printf("Syscall number: %llu\n", data.rax);
   }
+  */
 }
 
 /**

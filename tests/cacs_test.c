@@ -49,7 +49,12 @@ int main(int argc, char **argv)
     iov[1].iov_len  = strlen(test_string2);
     iov[2].iov_base = test_string3;
     iov[2].iov_len  = strlen(test_string3);
+    
+    printf("test1: %lu\n", iov[0].iov_base);
+    printf("test2: %lu\n", iov[1].iov_base);
+    printf("test3: %lu\n", iov[2].iov_base);
 
+    printf("%llu\n", &iov[0]);
     writev(file1, &iov[0], 1);
     writev(file2, &iov[1], 1);
     writev(file3, &iov[2], 1);
