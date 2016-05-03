@@ -19,6 +19,41 @@
 #include <sys/uio.h>
 #include "main.h"
 
+void extract_data(pid_t child, struct iovec *iov)
+{
+  union u {
+    long val;
+    char chars[sizeof(long)];
+  }data;
+ 
+  size_t strLength;
+  size_t *laddr = &strLength;
+  
+  size_t numWords = sizeof(size_t) / sizeof(long);
+
+  size_t i = 0;
+  while(i < numWords)
+  {
+    data.val = ptrace(PTRACE_PEEKDATA, child, (iov -> iov_len)  + (i * sizeof(long)), NULL);
+    memcpy(laddr, data.chars, sizeof(long));
+    ++i;
+    laddr += sizeof(long);
+
+  }
+
+  numWords = sizeof(size_t) % sizeof(long);
+  if(numWords != 0)
+  {
+    data.val = ptrace(PTRACE_PEEKDATA, child, (iov -> iov_len) + (i * sizeof(long)), NULL);
+    memcpy(laddr, data.chars, numWords);
+    ++i;
+    laddr += sizeof(long);
+
+  }
+
+  printf("String Length: %i\n", &strLength);
+}
+
 /**
   @brief gets an object from the child's memory
   @input size how big the object is (in terms of bytes)
@@ -56,7 +91,15 @@ long *grab_object(size_t size, long address, pid_t child)
     laddr += sizeof(long); //IDK what this value is..
   #endif
   }  
-  printf("Data: %lu\n", (iov -> iov_base));
+  numWords = size % (sizeof(long));
+  if(numWords != 0) 
+  {
+    data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * sizeof(long)),  NULL);
+    memcpy(laddr, data.chars, numWords);
+  }
+  printf("Data: %lu, %lu\n", (iov -> iov_base), &(iov -> iov_len));
+  extract_data(child, iov);
+
   return data.val;
 }
 
@@ -113,6 +156,7 @@ void process_syscall(pid_t child)
     printf("IOVCNT: %llu\n", data.rdx);
     //ebx, ecx, edx
     grab_object((sizeof(struct iovec) * data.rdx), data.rsi, child);
+    printf("\n");
   }
   else if(syscall_num == SYS_readv)
   {

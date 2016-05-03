@@ -50,10 +50,13 @@ int main(int argc, char **argv)
     iov[2].iov_base = test_string3;
     iov[2].iov_len  = strlen(test_string3);
     
-    printf("test1: %lu\n", iov[0].iov_base);
-    printf("test2: %lu\n", iov[1].iov_base);
-    printf("test3: %lu\n", iov[2].iov_base);
-
+    printf("test1: IOV: &%lu, IOV: %lu, IOV_BASE: &%lu, IOV_BASE: %lu IOV_LEN: &%lu IOV_LEN: %lu\n", 
+        &iov[0], iov[0], &iov[0].iov_base, iov[0].iov_base, &iov[0].iov_len, iov[0].iov_len);
+    printf("test2: IOV: &%lu, IOV: %lu, IOV_BASE: &%lu, IOV_BASE: %lu IOV_LEN: &%lu IOV_LEN: %lu\n", 
+        &iov[1], iov[1], &iov[1].iov_base, iov[1].iov_base, &iov[1].iov_len, iov[1].iov_len);
+    printf("test3: IOV: &%lu, IOV: %lu, IOV_BASE: &%lu, IOV_BASE: %lu IOV_LEN: &%lu IOV_LEN: %lu\n", 
+        &iov[2], iov[2], &iov[2].iov_base, iov[2].iov_base, &iov[2].iov_len, iov[2].iov_len);
+    
     printf("%llu\n", &iov[0]);
     writev(file1, &iov[0], 1);
     writev(file2, &iov[1], 1);

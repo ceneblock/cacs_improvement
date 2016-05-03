@@ -6,6 +6,7 @@
 #include <sys/user.h>
 #ifndef HAVE_CONFIG_H
 #define PACKAGE_STRING "test 0.0.1"
+#define PACKAGE_NAME "test"
 #else
 #include "config.h"
 #endif
