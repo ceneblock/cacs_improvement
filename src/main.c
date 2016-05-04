@@ -18,92 +18,112 @@
 #include <sys/reg.h>
 #include <sys/uio.h>
 #include "main.h"
+  
+const size_t WORD_SIZE = sizeof(long);
 
-void extract_data(pid_t child, struct iovec *iov)
+/*
+  @brief grabs the string data from an iov
+  @input child the child's process
+  @input iov the iov from the child
+  @input string the value of the string extracted
+*/
+void extract_data(pid_t child, struct iovec *iov, char *string)
 {
   union u {
     long val;
-    char chars[sizeof(long)];
+    char chars[WORD_SIZE];
   }data;
 
   long address = (long) iov -> iov_base;
 
-  char *string = malloc(sizeof(char) * iov -> iov_len);
+  string = malloc(sizeof(char) * iov -> iov_len);
   char *laddr = string;
 
-  size_t count = (sizeof(char) * iov -> iov_len) / sizeof(long);
+
+  size_t count = (sizeof(char) * iov -> iov_len) / WORD_SIZE;
 
   int x = 0;
 
   while(x <= count)
   {
     #ifdef __x86_64__
-      data.val = ptrace(PTRACE_PEEKDATA, child, address + (x * sizeof(long)), NULL);
-      memcpy(laddr, data.chars, sizeof(long));
+      data.val = ptrace(PTRACE_PEEKDATA, child, address + (x * WORD_SIZE), NULL);
+      memcpy(laddr, data.chars, WORD_SIZE);
       x++;
-      laddr += sizeof(long);
+      laddr += WORD_SIZE;
     #else
-      data.val = ptrace(PTRACE_PEEKDATA, child, address, NULL);
-      memcpy(laddr, data.chars, sizeof(long));
+      data.val = ptrace(PTRACE_PEEKDATA, child, address + (x * WORD_SIZE), NULL);
+      memcpy(laddr, data.chars, WORD_SIZE);
       x++;
-      laddr += sizeof(long); //IDK what this value is..
+      laddr += WORD_SIZE; //IDK what this value is..
     #endif
   }
 
-  printf("Data is: %s\n", string);
-
+  if(DEBUG)
+  {
+    printf("Data is: %s\n", string);
+  }
 }
 
 /**
   @brief gets an object from the child's memory
-  @input size how big the object is (in terms of bytes)
+  @input size how many iovecs we are retrieving
   @input address the starting address
   @input child the child's pid
-  @return the blob of data from the child
+  @input iov an array of iovecs to be returned.
 */
-long *grab_object(size_t size, long address, pid_t child)
+void grab_object(size_t size, long address, pid_t child, struct iovec *iov)
 {
 
-  printf("address %#lx\n", address);
+  
   union u {
     long val;
-    char chars[sizeof(long)];
+    char chars[WORD_SIZE];
   }data;
 
-  size_t numWords = size / sizeof(long);
-  printf("Size of long: %zi\n", sizeof(long));
-  printf("Size of iovec: %zi\n", sizeof(struct iovec));
-  printf("Number of Words: %zi\n", numWords); 
-  size_t i = 0;
+  iov = malloc(sizeof(struct iovec) * size);
 
-  struct iovec *iov = malloc(sizeof(struct iovec));
-  char *laddr = (char *)iov;
+  size_t numWords = (sizeof(struct iovec) * size) / WORD_SIZE;
 
-  while(i <= numWords)
+  char *string = NULL;
+
+  if(DEBUG)
   {
-
-  #ifdef __x86_64__
-    data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * sizeof(long)), NULL);
-    memcpy(laddr, data.chars, sizeof(long));
-    i++;
-    laddr += sizeof(long);
-  #else
-    data.val = ptrace(PTRACE_PEEKDATA, child, address, NULL);
-    memcpy(laddr, data.chars, sizeof(long));
-    i++;
-    laddr += sizeof(long); //IDK what this value is..
-  #endif
-  }  
-  numWords = size % (sizeof(long));
-  if(numWords != 0) 
-  {
-    data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * sizeof(long)),  NULL);
-    memcpy(laddr, data.chars, numWords);
+    printf("address %#lx\n", address);
+    printf("numWords %zx\n", numWords);
+    printf("size of word %zx\n", WORD_SIZE);
   }
-  
-  extract_data(child, iov);
 
-  return 0;
+  size_t x = 0; 
+  for(x = 0; x < size; x++)
+  {
+    size_t i = 0;
+    char *laddr = (char *)&iov[x];
+    while(i <= numWords)
+    {
+
+      #ifdef __x86_64__
+        data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * WORD_SIZE), NULL);
+        memcpy(laddr, data.chars, WORD_SIZE);
+        i++;
+        laddr += WORD_SIZE;
+      #else
+        data.val = ptrace(PTRACE_PEEKDATA, child, address, NULL);
+        memcpy(laddr, data.chars, WORD_SIZE);
+        i++;
+        laddr += WORD_SIZE; //IDK what this value is..
+      #endif
+    }  
+
+    numWords = size % (WORD_SIZE);
+    if(numWords != 0) 
+    {
+      data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * WORD_SIZE),  NULL);
+      memcpy(laddr, data.chars, numWords);
+    }
+    
+    extract_data(child, &iov[x], string);
+  }
 }
 
 /**
@@ -123,16 +143,20 @@ void process_syscall(pid_t child)
     some time.
   */
   #ifdef __x86_64__
-    data.rdi = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * RDI, NULL);
-    data.rsi = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * RSI, NULL);
-    data.rdx = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * RDX, NULL);
-    syscall_num = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * ORIG_RAX, NULL);
+    data.rdi = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * RDI, NULL);
+    data.rsi = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * RSI, NULL);
+    data.rdx = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * RDX, NULL);
+    syscall_num = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * ORIG_RAX, NULL);
   #else
     ptrace(PTRACE_GETREGS, child, NULL, &data);
-    syscall_num = ptrace(PTRACE_PEEKUSER, child, sizeof(long) * ORIG_EAX, NULL);
+    syscall_num = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * ORIG_EAX, NULL);
   #endif
 
-  if(syscall_num == SYS_writev)
+  if(syscall_num == SYS_open)
+  {
+    printf("caught an open!\n");
+  }
+  else if(syscall_num == SYS_writev)
   {
     ///hijack the write
     /**
@@ -151,27 +175,40 @@ void process_syscall(pid_t child)
       return what was sent. This applies to read as well. s/write/read/i
 
       @note gprof will generate an extra writev, so I'll have to monitor
-      close(2)
+      close(2) and open(2).
     */
-    printf("caught a writev\n");
-    printf("FD: %lli\n", data.rdi);
-    printf("IOV: %#llx\n", data.rsi);
-    printf("IOVCNT: %lli\n", data.rdx);
+    if(DEBUG)
+    {
+      printf("caught a writev\n");
+      printf("FD: %lli\n", data.rdi);
+      printf("IOV: %#llx\n", data.rsi);
+      printf("IOVCNT: %lli\n", data.rdx);
+    }
     //ebx, ecx, edx
-    grab_object((sizeof(struct iovec) * data.rdx), data.rsi, child);
-    printf("\n");
+    struct iovec *iov = NULL;
+    grab_object(data.rdx, data.rsi, child, iov);
+    //write_object(data.rdi, iov);
+    if(DEBUG)
+    {
+      printf("\n");
+    }
   }
   else if(syscall_num == SYS_readv)
   {
-    printf("caught a readv\n");
+    if(DEBUG)
+    {
+      printf("caught a readv\n");
+    }
     ///hijack the read
   }
-  /*
   else
   {
-    printf("Syscall number: %llu\n", data.rax);
+    if(DEBUG)
+    {
+      printf("Syscall number: %llu\n", data.rax);
+    }
   }
-  */
+ 
 }
 
 /**
@@ -360,7 +397,7 @@ void do_parent(char *conf_location, pid_t child)
   waitpid(child, &status, 0);
   WIFSTOPPED(status);
   ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_TRACESYSGOOD);
-
+  int toggle = 1;
   /*
   long rv = ptrace(PTRACE_SETOPTIONS, child, 0, PTRACE_O_EXITKILL | 
       PTRACE_O_TRACECLONE | PTRACE_O_TRACEEXEC | PTRACE_O_TRACEFORK |
@@ -373,13 +410,28 @@ void do_parent(char *conf_location, pid_t child)
     {
       break;
     }
-    process_syscall(child);
+    if(toggle == 1)
+    {
+      process_syscall(child);
+      toggle = 0;
+    }
+    else
+    {
+      toggle = 1;
+    }
     if(wait_for_syscall(child) != 0)
     {
-      printf("popped out 2\n");
+      if(DEBUG)
+      {
+        printf("popped out 2\n");
+      }
       break;
     }
-    process_syscall(child);
+    if(toggle == 1)
+    {
+      process_syscall(child);
+    }
+
   }
 
   ptrace(PTRACE_DETACH, child, NULL, 0);

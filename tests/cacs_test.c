@@ -5,7 +5,8 @@
 #include <sys/uio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include </usr/include/asm-generic/fcntl.h>
+//#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,9 +35,9 @@ int main(int argc, char **argv)
     printf("Going to open a file called %s with rank 2\n", argv[2]);
     printf("Going to open a file called %s with rank 3\n", argv[3]);
 
-    int file1 = open(argv[1], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-    int file2 = open(argv[2], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
-    int file3 = open(argv[3], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    int file1 = open(argv[1], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | O_CLASSIFY);
+    int file2 = open(argv[2], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | O_CLASSIFY);
+    int file3 = open(argv[3], O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR | O_CLASSIFY);
 
     char *test_string1 = "Hello World 1\n";
     char *test_string2 = "Hello World 2\n";

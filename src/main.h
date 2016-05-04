@@ -12,7 +12,7 @@
 #endif
 
 int exit_status = EXIT_SUCCESS;
-int DEBUG = 0;
+int DEBUG = 1;
 
 static const struct option longopts[] = {
   {"help", no_argument, NULL, 'h'},
@@ -29,6 +29,8 @@ struct file_vec_struct
   unsigned int priority;
 };
 
+
+
 void handle_death(int status, void *pid);
 struct user_regs_struct get_syscall(pid_t child);
 void do_parent(char *conf_location, pid_t child);
@@ -38,4 +40,5 @@ void read_conf(char *conf_location, struct file_vec_struct *file_array);
 int file_vec_struct_comparison(const void *left, const void *right);
 int wait_for_syscall(pid_t child);
 void process_syscall(pid_t child);
-long *grab_object(size_t size, long address, pid_t child);
+void grab_object(size_t size, long address, pid_t child, struct iovec *iov);
+void extract_data(pid_t child, struct iovec *iov, char *string);
