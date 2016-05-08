@@ -18,9 +18,46 @@
 #include <sys/reg.h>
 #include <sys/uio.h>
 #include <fcntl.h>  
+#include <asm-generic/fcntl.h>
 #include "main.h"
 
 const size_t WORD_SIZE = sizeof(long);
+
+/*
+  @brief handles when the child opens a file for storage
+  @input child the pid of the child
+*/
+void open_file(pid_t child)
+{
+  struct user_regs_struct data;
+  ptrace(PTRACE_GETREGS, child, NULL, &data);
+  //data.rdi = 0; //they all will "write" to the same file
+  //data.rip++;
+  ptrace(PTRACE_SETREGS, child, NULL, &data);
+}
+
+/*
+  @brief handles when the child close a file for storage
+  @input child the pid of the child
+  @input fd the descriptor associated with the file
+*/
+void close_file(pid_t child, int fd)
+{
+  size_t arr_size = sizeof(file_vec) / sizeof(struct file_vec_struct);
+  if(fd <= arr_size)
+  {
+    if(file_vec[fd].file_num != -1)
+    {
+      close(file_vec[fd].file_num);
+      file_vec[fd].file_num = -1;
+    }
+    else
+    {
+      fprintf(stderr, "WOAH, something went wrong in in close_file() %i\n",
+          __LINE__);
+    }
+  }
+}
 
 /*
   @brief grabs the string data from an iov
@@ -133,7 +170,7 @@ void grab_object(size_t size, long address, pid_t child, struct iovec *iov)
 */
 void process_syscall(pid_t child)
 {
-  struct user_regs_struct data;
+  struct user_regs_struct data = {0};
   long syscall_num = 0;
   /**
     @note According to Nelson Elhage, %rax is clobbered by the kernel (which
@@ -149,7 +186,10 @@ void process_syscall(pid_t child)
     data.rdx = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * RDX, NULL);
     syscall_num = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * ORIG_RAX, NULL);
   #else
-    ptrace(PTRACE_GETREGS, child, NULL, &data);
+    
+    data.rdi = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * EDI, NULL);
+    data.rsi = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * ESI, NULL);
+    data.rdx = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * EDX, NULL);
     syscall_num = ptrace(PTRACE_PEEKUSER, child, WORD_SIZE * ORIG_EAX, NULL);
   #endif
 
@@ -158,8 +198,19 @@ void process_syscall(pid_t child)
     printf("caught an open!\n");
     if(data.rdx & O_CLASSIFY)
     {
-      printf("Found a O_CLASSIFY!\n");
+      if(DEBUG)
+      {  
+        printf("Found a O_CLASSIFY!\n");
+        //printf("Location: %s\n", data.rsi);
+
+      }
+      open_file(child);
     }
+    else
+    {
+      printf("No O_CLASSIFY!\n");
+    }
+
   }
   else if(syscall_num == SYS_writev)
   {
@@ -208,10 +259,13 @@ void process_syscall(pid_t child)
   }
   else
   {
+    /*
+    This can get annoying and produces a LOT of data.
     if(DEBUG)
     {
       printf("Syscall number: %llu\n", data.rax);
     }
+    */
   }
  
 }

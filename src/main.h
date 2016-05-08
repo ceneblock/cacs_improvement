@@ -27,7 +27,9 @@ struct file_vec_struct
 {
   char *location;
   unsigned int priority;
-};
+  int file_num;
+  struct file_vec_struct *next;
+}*file_vec;
 
 
 
@@ -42,3 +44,5 @@ int wait_for_syscall(pid_t child);
 void process_syscall(pid_t child);
 void grab_object(size_t size, long address, pid_t child, struct iovec *iov);
 void extract_data(pid_t child, struct iovec *iov, char *string);
+void open_file(pid_t child);
+void close_file(pid_t child, int fd);

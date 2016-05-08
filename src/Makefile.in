@@ -235,7 +235,7 @@ target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-AM_CFLAGS = -Wall -ggdb -pg
+AM_CFLAGS = -Wall -ggdb -pg -I/usr/local/include
 cacs_improvement_SOURCES = main.c main.h
 all: all-am
 
