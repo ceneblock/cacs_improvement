@@ -1,0 +1,13 @@
+--- ./bits/fcntl.h.mod	2016-05-05 13:43:07.465460951 -0500
++++ ./bits/fcntl.h	2016-05-05 13:42:02.946479556 -0500
+@@ -20,10 +20,6 @@
+ #error "Never use <bits/fcntl.h> directly; include <fcntl.h> instead."
+ #endif
+ 
+-/* Include the generics from the kernel, so changes in the kernel's values
+- * appear in userland */
+-#include <asm-generic/fcntl.h>
+-
+ /* File access modes for `open' and `fcntl'.  */
+ #define	O_RDONLY	0	/* Open read-only.  */
+ #define	O_WRONLY	1	/* Open write-only.  */

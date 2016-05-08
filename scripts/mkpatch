@@ -1,0 +1,22 @@
+#!/bin/bash
+#I know this looks a little confusing, but modify_kernel() means we are going to
+#change what is in /boot/vm-linux and modify_source() means we'll change stuff
+#in /usr/src/linux
+
+function modify_kernel()
+{
+}
+
+function modify_source()
+{
+}
+
+echo "We need to patch your kernel to have cacs_improvements working"
+echo "Do you want to (m)odify your current kernel or (p)atch source tree?"
+echo "Default is to patch"
+read choice
+
+if [ "$choice" == "m" ];
+then
+else
+fi

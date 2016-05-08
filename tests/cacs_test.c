@@ -5,8 +5,8 @@
 #include <sys/uio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include </usr/include/asm-generic/fcntl.h>
-//#include <fcntl.h>
+//#include <asm-generic/fcntl.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,6 +31,7 @@ int main(int argc, char **argv)
 {
   if(argc == 4)
   {
+    unsigned int class1 = 1, class2 = 2, class3 = 3;
     printf("Going to open a file called %s with rank 1\n", argv[1]);
     printf("Going to open a file called %s with rank 2\n", argv[2]);
     printf("Going to open a file called %s with rank 3\n", argv[3]);
@@ -43,14 +44,22 @@ int main(int argc, char **argv)
     char *test_string2 = "Hello World 2\n";
     char *test_string3 = "Hello World 3\n";
 
-    struct iovec *iov = malloc(sizeof(struct iovec) * 3);
-    iov[0].iov_base = test_string1;
-    iov[0].iov_len  = strlen(test_string1);
-    iov[1].iov_base = test_string2;
-    iov[1].iov_len  = strlen(test_string2);
-    iov[2].iov_base = test_string3;
-    iov[2].iov_len  = strlen(test_string3);
+    struct iovec *iov = malloc(sizeof(struct iovec) * 3 * 2);
+    iov[0].iov_base = &class1;
+    iov[0].iov_len  = sizeof(unsigned int);
+    iov[1].iov_base = test_string1;
+    iov[1].iov_len  = strlen(test_string1);
     
+    iov[2].iov_base = &class2;
+    iov[2].iov_len  = sizeof(unsigned int);
+    iov[3].iov_base = test_string2;
+    iov[3].iov_len  = strlen(test_string2);
+    
+    iov[4].iov_base = &class3;
+    iov[4].iov_len  = sizeof(unsigned int);
+    iov[5].iov_base = test_string3;
+    iov[5].iov_len  = strlen(test_string3);
+
     printf("test1: IOV: &p, IOV: p, IOV_BASE: &%p, IOV_BASE: %p IOV_LEN: &%p IOV_LEN: %#zx\n", 
         (void *) &iov[0].iov_base,(void *) iov[0].iov_base, (void *) &iov[0].iov_len, iov[0].iov_len);
     printf("test2: IOV: &p, IOV: p, IOV_BASE: &%p, IOV_BASE: %p IOV_LEN: &%p IOV_LEN: %#zx\n", 

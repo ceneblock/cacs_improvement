@@ -1,0 +1,156 @@
+Only in ./linux-4.5.2-CACS/: dest
+diff -crB ./linux-4.5.2-CACS/include/uapi/asm-generic/fcntl.h ./linux-4.5.2/include/uapi/asm-generic/fcntl.h
+*** ./linux-4.5.2-CACS/include/uapi/asm-generic/fcntl.h	2016-05-08 14:29:10.567043802 -0500
+--- ./linux-4.5.2/include/uapi/asm-generic/fcntl.h	2016-04-20 01:46:35.000000000 -0500
+***************
+*** 1,7 ****
+  #ifndef _ASM_GENERIC_FCNTL_H
+  #define _ASM_GENERIC_FCNTL_H
+  
+- #include <linux/libc-compat.h>
+  #include <linux/types.h>
+  
+  /*
+--- 1,6 ----
+***************
+*** 16,29 ****
+   * When introducing new O_* bits, please check its uniqueness in fcntl_init().
+   */
+  
+- /* Make sure that we don't cause errors with libc */
+- #if __UAPI_DEF_FCNTL_H
+  #define O_ACCMODE	00000003
+  #define O_RDONLY	00000000
+  #define O_WRONLY	00000001
+  #define O_RDWR		00000002
+- #endif
+- 
+  #ifndef O_CREAT
+  #define O_CREAT		00000100	/* not fcntl */
+  #endif
+--- 15,24 ----
+***************
+*** 93,116 ****
+  #define __O_TMPFILE	020000000
+  #endif
+  
+- #if __UAPI_DEF_FCNTL_H
+  /* a horrid kludge trying to make sure that this will fail on old kernels */
+  #define O_TMPFILE (__O_TMPFILE | O_DIRECTORY)
+  #define O_TMPFILE_MASK (__O_TMPFILE | O_DIRECTORY | O_CREAT)      
+- #endif
+  
+  #ifndef O_NDELAY
+  #define O_NDELAY	O_NONBLOCK
+  #endif
+  
+- #if __UAPI_DEF_FCNTL_H
+  #define F_DUPFD		0	/* dup */
+  #define F_GETFD		1	/* get close_on_exec */
+  #define F_SETFD		2	/* set/clear close_on_exec */
+  #define F_GETFL		3	/* get file->f_flags */
+  #define F_SETFL		4	/* set file->f_flags */
+- #endif
+- 
+  #ifndef F_GETLK
+  #define F_GETLK		5
+  #define F_SETLK		6
+--- 88,106 ----
+***************
+*** 142,148 ****
+  #define F_GETOWNER_UIDS	17
+  #endif
+  
+- #if __UAPI_DEF_FCNTL_H
+  /*
+   * Open File Description Locks
+   *
+--- 132,137 ----
+***************
+*** 170,176 ****
+  
+  /* for F_[GET|SET]FL */
+  #define FD_CLOEXEC	1	/* actually anything with low bit set goes */
+- #endif /* __UAPI_DEF_FCNTL_H */
+  
+  /* for posix fcntl() and lockf() */
+  #ifndef F_RDLCK
+--- 159,164 ----
+***************
+*** 185,191 ****
+  #define F_SHLCK		8	/* or 4 */
+  #endif
+  
+- #if __UAPI_DEF_FCNTL_H
+  /* operations for bsd flock(), also used by the kernel implementation */
+  #define LOCK_SH		1	/* shared lock */
+  #define LOCK_EX		2	/* exclusive lock */
+--- 173,178 ----
+***************
+*** 200,209 ****
+  
+  #define F_LINUX_SPECIFIC_BASE	1024
+  
+- #endif
+- 
+- #if __UAPI_DEF_FCNTL_H
+- 
+  #ifndef HAVE_ARCH_STRUCT_FLOCK
+  #ifndef __ARCH_FLOCK_PAD
+  #define __ARCH_FLOCK_PAD
+--- 187,192 ----
+***************
+*** 233,237 ****
+  	__ARCH_FLOCK64_PAD
+  };
+  #endif
+! #endif /* __UAPI_DEF_FCNTL_H */
+  #endif /* _ASM_GENERIC_FCNTL_H */
+--- 216,220 ----
+  	__ARCH_FLOCK64_PAD
+  };
+  #endif
+! 
+  #endif /* _ASM_GENERIC_FCNTL_H */
+diff -crB ./linux-4.5.2-CACS/include/uapi/linux/libc-compat.h ./linux-4.5.2/include/uapi/linux/libc-compat.h
+*** ./linux-4.5.2-CACS/include/uapi/linux/libc-compat.h	2016-05-08 14:29:55.226333792 -0500
+--- ./linux-4.5.2/include/uapi/linux/libc-compat.h	2016-04-20 01:46:35.000000000 -0500
+***************
+*** 20,26 ****
+   *      e.g. #include <linux/libc-compat.h>
+   *     This include must be as early as possible.
+   *
+!  * (b) In libc-compat.h add enough code to detect that the conflicting
+   *     userspace libc header has been included first.
+   *
+   * (c) If the userspace libc header has been included first define a set of
+--- 20,26 ----
+   *      e.g. #include <linux/libc-compat.h>
+   *     This include must be as early as possible.
+   *
+!  * (b) In libc-compat.h add enough code to detect that the comflicting
+   *     userspace libc header has been included first.
+   *
+   * (c) If the userspace libc header has been included first define a set of
+***************
+*** 80,87 ****
+  #define __UAPI_DEF_IN6_PKTINFO		0
+  #define __UAPI_DEF_IP6_MTUINFO		0
+  
+- #define __UAPI_DEF_FCNTL_H 0
+- 
+  #else
+  
+  /* Linux headers included first, and we must define everything
+--- 80,85 ----
+***************
+*** 140,147 ****
+  /* Definitions for xattr.h */
+  #define __UAPI_DEF_XATTR		1
+  
+- /* Definitions for fcntl.h */
+- #define __UAPI_DEF_FCNTL_H 1
+  #endif /* __GLIBC__ */
+  
+  #endif /* _UAPI_LIBC_COMPAT_H */
+--- 138,143 ----

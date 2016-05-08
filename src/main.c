@@ -17,8 +17,9 @@
 #include <sys/wait.h>
 #include <sys/reg.h>
 #include <sys/uio.h>
+#include <fcntl.h>  
 #include "main.h"
-  
+
 const size_t WORD_SIZE = sizeof(long);
 
 /*
@@ -155,6 +156,10 @@ void process_syscall(pid_t child)
   if(syscall_num == SYS_open)
   {
     printf("caught an open!\n");
+    if(data.rdx & O_CLASSIFY)
+    {
+      printf("Found a O_CLASSIFY!\n");
+    }
   }
   else if(syscall_num == SYS_writev)
   {
