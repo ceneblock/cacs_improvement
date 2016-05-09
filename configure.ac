@@ -8,6 +8,9 @@ AC_CONFIG_HEADERS([config.h])
 AM_INIT_AUTOMAKE([subdir-objects])
 
 # Checks for programs.
+if test -z $CFLAGS; then
+    CFLAGS='-g'
+fi
 AC_PROG_CC
 AC_PROG_INSTALL
 

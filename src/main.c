@@ -29,11 +29,15 @@ const size_t WORD_SIZE = sizeof(long);
 */
 void open_file(pid_t child)
 {
-  struct user_regs_struct data;
-  ptrace(PTRACE_GETREGS, child, NULL, &data);
+  union u {
+    long val;
+    char chars[WORD_SIZE];
+  }data;
+  data.val = ptrace(PTRACE_PEEKDATA, child, RSI *  WORD_SIZE, NULL);
+  //printf("%s\n", (char *)data.chars);
   //data.rdi = 0; //they all will "write" to the same file
   //data.rip++;
-  ptrace(PTRACE_SETREGS, child, NULL, &data);
+  //ptrace(PTRACE_SETREGS, child, NULL, &data);
 }
 
 /*
@@ -41,20 +45,23 @@ void open_file(pid_t child)
   @input child the pid of the child
   @input fd the descriptor associated with the file
 */
-void close_file(pid_t child, int fd)
+void close_file(int fd)
 {
   size_t arr_size = sizeof(file_vec) / sizeof(struct file_vec_struct);
-  if(fd <= arr_size)
-  {
-    if(file_vec[fd].file_num != -1)
+  if(arr_size > 0)
+  { 
+    if(fd <= arr_size)
     {
-      close(file_vec[fd].file_num);
-      file_vec[fd].file_num = -1;
-    }
-    else
-    {
-      fprintf(stderr, "WOAH, something went wrong in in close_file() %i\n",
-          __LINE__);
+      if(file_vec[fd].file_num != -1)
+      {
+        close(file_vec[fd].file_num);
+        file_vec[fd].file_num = -1;
+      }
+      else
+      {
+        fprintf(stderr, "WOAH, something went wrong in in close_file() %i\n",
+            __LINE__);
+      }
     }
   }
 }
@@ -65,18 +72,18 @@ void close_file(pid_t child, int fd)
   @input iov the iov from the child
   @input string the value of the string extracted
 */
-void extract_data(pid_t child, struct iovec *iov, char *string)
+void extract_data(pid_t child, struct iovec *iov)
 {
   union u {
     long val;
     char chars[WORD_SIZE];
   }data;
 
+  
   long address = (long) iov -> iov_base;
 
-  string = malloc(sizeof(char) * iov -> iov_len);
+  char string[iov -> iov_len];
   char *laddr = string;
-
 
   size_t count = (sizeof(char) * iov -> iov_len) / WORD_SIZE;
 
@@ -99,8 +106,15 @@ void extract_data(pid_t child, struct iovec *iov, char *string)
 
   if(DEBUG)
   {
-    printf("Data is: %s\n", string);
+    int x = 0;
+    while(x != iov -> iov_len * 2)
+    {
+      printf("Letter: %c Int: %i\n", string[x], (unsigned int)string[x]);
+      x++;
+    }
+    //printf("Data is: %s\n", string);
   }
+  //free(string);
 }
 
 /**
@@ -119,11 +133,11 @@ void grab_object(size_t size, long address, pid_t child, struct iovec *iov)
     char chars[WORD_SIZE];
   }data;
 
-  iov = malloc(sizeof(struct iovec) * size);
 
   size_t numWords = (sizeof(struct iovec) * size) / WORD_SIZE;
 
-  char *string = NULL;
+  //char *string = NULL;
+  
 
   if(DEBUG)
   {
@@ -133,10 +147,11 @@ void grab_object(size_t size, long address, pid_t child, struct iovec *iov)
   }
 
   size_t x = 0; 
+  printf("size: %zu\n", size);
   for(x = 0; x < size; x++)
   {
     size_t i = 0;
-    char *laddr = (char *)&iov[x];
+    char *laddr = (char *)iov;
     while(i <= numWords)
     {
 
@@ -153,14 +168,14 @@ void grab_object(size_t size, long address, pid_t child, struct iovec *iov)
       #endif
     }  
 
-    numWords = size % (WORD_SIZE);
+    numWords = size % WORD_SIZE;
     if(numWords != 0) 
     {
       data.val = ptrace(PTRACE_PEEKDATA, child, address + (i * WORD_SIZE),  NULL);
       memcpy(laddr, data.chars, numWords);
     }
-    
-    extract_data(child, &iov[x], string);
+   
+    extract_data(child, &iov[x]);
   }
 }
 
@@ -200,8 +215,8 @@ void process_syscall(pid_t child)
     {
       if(DEBUG)
       {  
-        printf("Found a O_CLASSIFY!\n");
-        //printf("Location: %s\n", data.rsi);
+        printf("Found an O_CLASSIFY!\n");
+        //printf("Location: %s\n", data.rdi);
 
       }
       open_file(child);
@@ -241,9 +256,14 @@ void process_syscall(pid_t child)
       printf("IOVCNT: %lli\n", data.rdx);
     }
     //ebx, ecx, edx
-    struct iovec *iov = NULL;
-    grab_object(data.rdx, data.rsi, child, iov);
+    struct iovec iov[data.rdx];
+    int x = 0;
+    for(x = 0; x < data.rdx; x++)
+    {
+      grab_object(data.rdx, data.rsi, child, &iov[x]);
+    }
     //write_object(data.rdi, iov);
+    //free(iov);
     if(DEBUG)
     {
       printf("\n");
@@ -256,6 +276,14 @@ void process_syscall(pid_t child)
       printf("caught a readv\n");
     }
     ///hijack the read
+  }
+  else if(syscall_num == SYS_close)
+  {
+    if(DEBUG)
+    {
+      printf("caught a close!\n");
+    }
+    close_file(data.rdx);
   }
   else
   {
@@ -544,7 +572,7 @@ int main(int argc, char **argv)
             {
               //x++;
               ///Anything past here belongs to the child.
-              program_opts = malloc(sizeof(char *) * (argc - x + 1));
+              program_opts = malloc(sizeof(char *) * (argc - x + 2));
               int y = 0;
               while(x < argc)
               {

@@ -67,9 +67,9 @@ int main(int argc, char **argv)
     printf("test3: IOV: &p, IOV: p, IOV_BASE: &%p, IOV_BASE: %p IOV_LEN: &%p IOV_LEN: %#zx\n", 
         (void *) &iov[2].iov_base,(void *) iov[2].iov_base, (void *) &iov[2].iov_len, iov[2].iov_len);
     
-    writev(file1, &iov[0], 1);
-    writev(file2, &iov[1], 1);
-    writev(file3, &iov[2], 1);
+    writev(file1, &iov[0], 2);
+    writev(file2, &iov[2], 2);
+    writev(file3, &iov[4], 2);
 
     close(file1);
     close(file2);
